@@ -3,15 +3,21 @@ from PIL import Image
 from typing import List, Optional
 import io
 
-# InsightFace heavy imports are delayed to first use to speed startup
+# Mantemos um objeto global para não recarregar o modelo a cada chamada
 _face_app = None
 
 def _lazy_app():
     global _face_app
     if _face_app is None:
         from insightface.app import FaceAnalysis
-        _face_app = FaceAnalysis(name="buffalo_s")  # downloads on first use
-        _face_app.prepare(ctx_id=0, det_size=(640, 640))
+        # Modelo pequeno + CPU + apenas módulos necessários = menos RAM
+        _face_app = FaceAnalysis(
+            name="buffalo_sc",
+            providers=["CPUExecutionProvider"],
+            allowed_modules=["detection", "recognition"],
+        )
+        # Janela de detecção menor também economiza memória
+        _face_app.prepare(ctx_id=0, det_size=(320, 320))
     return _face_app
 
 def image_bytes_to_rgb(image_bytes: bytes) -> Image.Image:
@@ -19,30 +25,18 @@ def image_bytes_to_rgb(image_bytes: bytes) -> Image.Image:
     return img
 
 def get_face_embedding(image_bytes: bytes) -> Optional[List[float]]:
-    """Return a 512-dim embedding using InsightFace or None if no face."""
+    """Gera o embedding (lista de floats) do maior rosto encontrado."""
     img = image_bytes_to_rgb(image_bytes)
-    def _lazy_app():
-    global _face_app
-    if _face_app is None:
-        from insightface.app import FaceAnalysis
-        # Modelo menor + CPU + menos módulos = menos RAM
-        _face_app = FaceAnalysis(
-            name="buffalo_sc",
-            providers=["CPUExecutionProvider"],
-            allowed_modules=["detection", "recognition"]
-        )
-        _face_app.prepare(ctx_id=0, det_size=(320, 320))  # detecção menor = menos RAM
-    return _face_app
-
+    app = _lazy_app()
     faces = app.get(np.asarray(img))
     if not faces:
         return None
-    # Use the largest detected face
+    # maior rosto
     face = max(faces, key=lambda f: (f.bbox[2]-f.bbox[0])*(f.bbox[3]-f.bbox[1]))
-    emb = face.normed_embedding  # already L2-normalized
+    emb = face.normed_embedding  # já normalizado (L2)
     return emb.astype(float).tolist()
 
 def cosine_similarity(a: List[float], b: List[float]) -> float:
-    a = np.asarray(a); b = np.asarray(b)
-    # vectors expected to be normalized; similarity in [-1,1], higher is better
+    a = np.asarray(a)
+    b = np.asarray(b)
     return float(np.dot(a, b))
