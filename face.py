@@ -21,7 +21,19 @@ def image_bytes_to_rgb(image_bytes: bytes) -> Image.Image:
 def get_face_embedding(image_bytes: bytes) -> Optional[List[float]]:
     """Return a 512-dim embedding using InsightFace or None if no face."""
     img = image_bytes_to_rgb(image_bytes)
-    app = _lazy_app()
+    def _lazy_app():
+    global _face_app
+    if _face_app is None:
+        from insightface.app import FaceAnalysis
+        # Modelo menor + CPU + menos módulos = menos RAM
+        _face_app = FaceAnalysis(
+            name="buffalo_sc",
+            providers=["CPUExecutionProvider"],
+            allowed_modules=["detection", "recognition"]
+        )
+        _face_app.prepare(ctx_id=0, det_size=(320, 320))  # detecção menor = menos RAM
+    return _face_app
+
     faces = app.get(np.asarray(img))
     if not faces:
         return None
