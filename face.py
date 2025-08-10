@@ -10,7 +10,7 @@ def _lazy_app():
     global _face_app
     if _face_app is None:
         from insightface.app import FaceAnalysis
-        _face_app = FaceAnalysis(name="buffalo_l")  # downloads on first use
+        _face_app = FaceAnalysis(name="buffalo_s")  # downloads on first use
         _face_app.prepare(ctx_id=0, det_size=(640, 640))
     return _face_app
 
