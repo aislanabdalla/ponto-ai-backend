@@ -9,3 +9,4 @@ insightface==0.7.3
 onnxruntime==1.17.1
 numpy==1.26.4
 Pillow==10.3.0
+bcrypt==3.2.2
